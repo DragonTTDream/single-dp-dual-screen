@@ -1,0 +1,17 @@
+[Unit]
+Description=DP MST dual-monitor boot rescue (re-probe missing AMD DP monitors)
+Documentation=file:///etc/dp-mst-rescue.conf
+After=graphical.target multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/dp-mst-rescue.sh
+# 脚本内部还会再 sleep 等显示栈稳定；这里不额外加 TimeoutStartSec 限制
+StandardOutput=journal
+StandardError=journal
+# 只读 /sys、只写 power/control，无需特权能力之外的东西
+NoNewPrivileges=true
+
+[Install]
+WantedBy=graphical.target
