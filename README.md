@@ -1,13 +1,9 @@
-# single-dp-dual-screen — 单线双屏（DP MST）开机修复补丁集
-# Single-Cable Dual-Monitor (DP MST) Boot-Fix Patch Set
+# 单线双屏（DP 1.4 MST）开机修复补丁集
+
+**简体中文** · [English](README.en.md)
 
 > **一条 DP 线 → MST 菊花链 → 两块 2560×1440 屏**，挂在 AMD Raphael 核显上；NVIDIA 独显不接任何显示器、只做计算。
 > 本仓库收录让这套拓扑**每次开机都稳定亮双屏、进桌面**的核心补丁与诊断记录。
->
-> **EN — One DisplayPort cable → MST daisy chain → two 2560×1440 monitors on an AMD Raphael iGPU;
-> the NVIDIA dGPU drives no display and is compute-only.** This repository collects the core patches
-> and the full diagnosis records that make this topology light up both monitors and reach the desktop
-> reliably on every boot.
 
 [![Fedora](https://img.shields.io/badge/Fedora-44-blue)](https://fedoraproject.org/)
 [![KDE Plasma](https://img.shields.io/badge/KDE_Plasma-Wayland-blueviolet)](https://kde.org/plasma-desktop/)
@@ -15,33 +11,26 @@
 [![nvidia](https://img.shields.io/badge/nvidia-615.78.08-76B900)](https://www.nvidia.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
+> 英文全文：[README.en.md](README.en.md)（逐节对应，非摘要）· 变更记录：[CHANGELOG.md](CHANGELOG.md) / [CHANGELOG.en.md](CHANGELOG.en.md)
 
-## 目录 / Table of Contents
+## 目录
 
-| 中文 | English |
-| --- | --- |
-| [1. 问题是什么](#1-问题是什么--the-problem) | The problem |
-| [2. 硬件与拓扑](#2-硬件与拓扑--hardware--topology) | Hardware & topology |
-| [3. 核心补丁](#3-核心补丁--core-patches) | Core patches |
-| [4. 背景修复（非双屏本体）](#4-背景修复非双屏本体--background-fixes-not-part-of-the-dual-screen-fix) | Background fixes (not part of the dual-screen fix) |
-| [5. 本机实测状态](#5-本机实测状态2026-10-14-核验--verified-status-on-the-source-machine) | Verified status (2026-10-14) |
-| [6. 安装](#6-安装--installation) | Installation |
-| [7. 验证](#7-验证--verification) | Verification |
-| [8. 卸载 / 回滚](#8-卸载--回滚--uninstall--rollback) | Uninstall & rollback |
-| [9. 带宽账：为什么必须钉 120Hz](#9-带宽账为什么必须钉-120hz--bandwidth-budget-why-120hz) | Bandwidth budget: why 120Hz |
-| [10. 故障排查](#10-故障排查--troubleshooting) | Troubleshooting |
-| [11. 引用的技术与仓库](#11-引用的技术与仓库--referenced-technologies--repositories) | Referenced technologies & repositories |
-| [12. 免责声明](#12-免责声明--disclaimer) | Disclaimer |
-
-> 每一节中文在前、英文在后，逐节对照。
-> **EN — Each section below is bilingual: Chinese first, then the English counterpart.**
+1. [问题是什么](#1-问题是什么)
+2. [硬件与拓扑](#2-硬件与拓扑)
+3. [核心补丁](#3-核心补丁)
+4. [背景修复（非双屏本体）](#4-背景修复非双屏本体)
+5. [本机实测状态（2026-10-14 核验）](#5-本机实测状态2026-10-14-核验)
+6. [安装](#6-安装)
+7. [验证](#7-验证)
+8. [卸载 / 回滚](#8-卸载--回滚)
+9. [带宽账：为什么必须钉 120Hz](#9-带宽账为什么必须钉-120hz)
+10. [故障排查](#10-故障排查)
+11. [引用的技术与仓库](#11-引用的技术与仓库)
+12. [免责声明](#12-免责声明)
 
 ---
 
-## 1. 问题是什么 / The Problem
-
-**中文**
+## 1. 问题是什么
 
 | 症状 | 表现 |
 | --- | --- |
@@ -60,19 +49,7 @@
    （`*ERROR* Unsupported screen format RA24`）→ **整个** atomic commit 返回 EINVAL → 桌面起不来。
    与 MST 链路无关（好坏开机的 MST/DSC/LTTPR 指纹完全一致，见 [docs/kwin-ra24-cursor-regression.md](docs/kwin-ra24-cursor-regression.md)）。
 
-**EN** — Three symptoms: (1) probabilistic black screen at boot, no TTY, power-button-forced shutdown;
-(2) only one of the two MST monitors lights up (once 100% reproducible at boot); (3) the SDDM greeter is
-fine but the Plasma session fails to start (~2/3 failure rate). Three independent root causes, each proven
-from logs: unstable DP link training (LTTPR misread + amdgpu MST payload allocation race → KWin atomic
-modeset `EINVAL`); the NVIDIA driver registering a KMS device it never uses (no monitor attached,
-`Cannot find any crtc or sizes` — joining the display chain is pure risk, 2/2 boot hangs on 615.78.08);
-and a KWin cursor-plane regression where amdgpu DC rejects the `RA24` (`RGBA8888`) cursor format, failing
-the *entire* atomic commit — unrelated to the MST link (identical MST/DSC/LTTPR fingerprints on good and
-bad boots).
-
-## 2. 硬件与拓扑 / Hardware & Topology
-
-**中文**
+## 2. 硬件与拓扑
 
 ```
 AMD Raphael 核显 (amdgpu, card1, PCI 1002:164E, 0000:11:00.0)
@@ -84,16 +61,9 @@ NVIDIA RTX 4070 Ti SUPER (0000:01:00.0) —— 不接任何显示器，纯 CUDA 
 ```
 
 - 内核日志佐证：`DM_MST: Differing MST start on aconnector`（MST 拓扑管理器启动）。
-- 两块屏均为 **2560×1440@120Hz**；120Hz 是带宽硬约束下的选择，见 [§9](#9-带宽账为什么必须钉-120hz--bandwidth-budget-why-120hz)。
+- 两块屏均为 **2560×1440@120Hz**；120Hz 是带宽硬约束下的选择，见 [§9](#9-带宽账为什么必须钉-120hz)。
 
-**EN** — Both monitors hang off the AMD Raphael iGPU (`card1`) through a single DP 1.4 cable daisy-chained
-via MST, enumerated as `card1-DP-4` (top) and `card1-DP-6` (bottom) at 2560×1440@120Hz. The NVIDIA
-RTX 4070 Ti SUPER (`0000:01:00.0`) has no monitor attached and is used for CUDA only. Kernel evidence:
-`DM_MST: Differing MST start on aconnector`.
-
-## 3. 核心补丁 / Core Patches
-
-**中文**
+## 3. 核心补丁
 
 与「单线双屏开机稳定」直接相关的补丁共 4 个：
 
@@ -112,26 +82,7 @@ RTX 4070 Ti SUPER (`0000:01:00.0`) has no monitor attached and is used for CUDA 
 「开机只亮一屏」要在 `graphical.target` 之后才判断得准。服务只读 `/sys` 状态、只写 `power/control`，
 **不碰 DRM master**（Wayland 下 KWin 独占 DRM master，任何 atomic 操作都会 EBUSY）。
 
-**EN** — Four patches are directly about dual-screen boot stability:
-**① dp-mst-rescue** — a systemd oneshot service that, after `graphical.target`, checks the expected
-MST connectors and, if any is missing, cycles its runtime power management (`power/control: on → previous`)
-to force amdgpu to re-train the DP link / re-enumerate MST. Fixes "only one monitor lights up at boot".
-**② `nvidia-drm.modeset=0`** (kernel cmdline + modprobe.d) — takes the display-less NVIDIA GPU out of the
-display chain; its KMS registration was the entry point of the boot hangs.
-**③ SDDM greeter output config pinned** (DP-4 top / DP-6 bottom, 120Hz, scale 1.3) — the greeter stops
-probing the link, cutting first-modeset failure rate (see §9 for the bandwidth budget).
-**④ `KWIN_FORCE_SW_CURSOR=1`** (two drop points, user-level) — bypasses the RA24 cursor-plane rejection
-that made desktop startup random.
-A key finding: none of these live in driver files (`rpm -V` on all 16 nvidia packages: zero differences;
-no xorg.conf, no EDID overrides, no custom services) — they live in GRUB kernel args, a systemd service,
-and user environment variables, so driver upgrades (akmods rebuilds) cannot clobber them.
-Why ① is a systemd service and not a udev rule: udev fires early, before the display stack exists; the
-"one monitor missing" verdict is only reliable after `graphical.target`. The service only reads `/sys`
-and writes `power/control`, never touching the DRM master (KWin owns it on Wayland; any atomic op → EBUSY).
-
-## 4. 背景修复（非双屏本体）/ Background Fixes (Not Part of the Dual-Screen Fix)
-
-**中文**
+## 4. 背景修复（非双屏本体）
 
 同一场开机排障中做的其它改动，**与单线双屏 bug 无直接关系**，仅为完整记录而收录：
 
@@ -145,17 +96,9 @@ and writes `power/control`, never touching the DRM master (KWin owns it on Wayla
 对应脚本逐字存档在 [docs/legacy-apply-p1p2p3.sh](docs/legacy-apply-p1p2p3.sh) 与
 [docs/legacy-fix-boot-black-screen.sh](docs/legacy-fix-boot-black-screen.sh)（**只留档，不要照跑**）。
 
-**EN** — Other changes made during the same boot-troubleshooting campaign, kept for completeness only;
-they are **not** part of the dual-screen fix: removing `rhgb quiet` (indirect: plymouth fails to render on
-this MST link, so you at least get visible logs); disabling Discover offline updates / making
-`dnf-automatic` download-only (unrelated to the display chain); removing dead `vfio-pci` passthrough boot
-args (GPU-passthrough leftover, unrelated to displays); and the recorded fact that NVIDIA GSP firmware is
-version-bound to the userspace package (a driver-rollback boundary, see §10). The scripts are archived
-verbatim under `docs/` — archive only, do not run them as a dual-screen fix.
+## 5. 本机实测状态（2026-10-14 核验）
 
-## 5. 本机实测状态（2026-10-14 核验）/ Verified Status on the Source Machine (2026-10-14)
-
-**中文** — 用 [`scripts/verify-status.sh`](scripts/verify-status.sh) 可在任何装了本补丁集的机器上复测。
+用 [`scripts/verify-status.sh`](scripts/verify-status.sh) 可在任何装了本补丁集的机器上复测。
 
 | 项 | 实测值 | 判定 |
 | --- | --- | --- |
@@ -176,19 +119,9 @@ verbatim under `docs/` — archive only, do not run them as a dual-screen fix.
 （开机报 `AMD-Vi: Unknown option - 'on'`），属背景遗留；② SDDM 的 `kwinoutputconfig.json` 为 `sddm`
 用户属主（0700 目录），非 root 无法核验其现状。
 
-**EN** — Verified on the source machine on 2026-10-14: kernel 7.2.10-200.fc44; NVIDIA 615.78.08
-(compute-only); `nvidia-drm.modeset=0` on the kernel command line; module parameter `modeset=N`;
-modprobe.d drop-in present; both connectors `card1-DP-4` / `card1-DP-6` `connected`; `card0` owned by
-nvidia with empty connectors (out of the display chain); `dp-mst-rescue.service` enabled and reporting
-`OK: 期望屏全部在位` on the last 4 boots; `KWIN_FORCE_SW_CURSOR=1` present at both drop points;
-this boot's `RA24` and `Atomic modeset commit failed` counters both `0`; `LTTPR` counter 13 (benign,
-present on every boot). Open items: a dead `amd_iommu=on` arg remains in `/etc/default/grub` (background
-leftover); the sddm-owned greeter config is not readable as non-root, so its current state is unverified.
-Run [`scripts/verify-status.sh`](scripts/verify-status.sh) to reproduce the check on your machine.
+## 6. 安装
 
-## 6. 安装 / Installation
-
-**中文** — 需 root 的部分以 `sudo` 运行；④ 为用户级，无需 root。
+需 root 的部分以 `sudo` 运行；④ 为用户级，无需 root。
 
 **① dp-mst-rescue**
 
@@ -230,23 +163,7 @@ bash scripts/apply-sw-cursor.sh --status   # 查看
 bash scripts/apply-sw-cursor.sh --revert   # 卸载
 ```
 
-**EN** — Root parts run under `sudo`; ④ is user-level.
-**①** install the three files of [`dp-mst-rescue/`](dp-mst-rescue/README.md) to
-`/usr/local/lib/dp-mst-rescue.sh`, `/etc/dp-mst-rescue.conf`,
-`/etc/systemd/system/dp-mst-rescue.service`, then `systemctl daemon-reload && systemctl enable`.
-Edit `/etc/dp-mst-rescue.conf` to list *your* connected connectors (find them with
-`ls -d /sys/class/drm/card*-DP-*` + `cat .../status`).
-**②** `sudo grubby --update-kernel=ALL --args="nvidia-drm.modeset=0"` plus
-`echo 'options nvidia_drm modeset=0' | sudo tee /etc/modprobe.d/00-nvidia-drm-modeset.conf`.
-Cost: NVIDIA stops driving displays (no effect when monitors sit on the iGPU); CUDA does not need KMS.
-**③** adapt [scripts/sddm-kwinoutputconfig.json](scripts/sddm-kwinoutputconfig.json) to your connector
-names and install it as `/var/lib/sddm/.config/kwinoutputconfig.json` owned by `sddm` (0600, dir 0700).
-**④** `bash scripts/apply-sw-cursor.sh` (supports `--status` / `--revert` / `--dry-run`); takes
-effect after logout/login, no reboot needed.
-
-## 7. 验证 / Verification
-
-**中文**
+## 7. 验证
 
 ```bash
 bash scripts/verify-status.sh        # 一键体检（只读，无需 root）
@@ -265,17 +182,7 @@ journalctl -b -o cat _COMM=kwin_wayland --no-pager | grep -c 'Atomic modeset com
 
 **判据**：连续 3 次重启都双屏全亮且能进桌面、上述计数为 0，才算修复。
 
-**EN** — Run `bash scripts/verify-status.sh` (read-only, no root). Manual checks: both connectors
-`connected`; `journalctl -u dp-mst-rescue -b -o cat` shows `OK` / `MISSING→SUCCESS` / `WARNING`;
-module parameter `modeset=N`; cmdline contains `nvidia-drm.modeset=0`; the running kwin carries
-`KWIN_FORCE_SW_CURSOR`; the `RA24` and `Atomic modeset commit failed` counters are 0.
-Always filter journald fields (`-k` for kernel, `_COMM=kwin_wayland` for kwin) — unfiltered greps count
-automation process command lines into the totals. Acceptance: 3 consecutive reboots with both monitors
-lit and a working desktop, counters at 0.
-
-## 8. 卸载 / 回滚 / Uninstall & Rollback
-
-**中文 / EN**（命令通用）
+## 8. 卸载 / 回滚
 
 ```bash
 # ①
@@ -291,9 +198,7 @@ sudo rm /var/lib/sddm/.config/kwinoutputconfig.json
 bash scripts/apply-sw-cursor.sh --revert
 ```
 
-## 9. 带宽账：为什么必须钉 120Hz / Bandwidth Budget: Why 120Hz
-
-**中文**
+## 9. 带宽账：为什么必须钉 120Hz
 
 | 项 | 数值 |
 | --- | --- |
@@ -318,19 +223,7 @@ kscreen-doctor output.DP-4.mode.2560x1440@100 output.DP-6.mode.2560x1440@100
 色深固定 8bit；确认走 **MST** 而非显示器内部 PBP。固件侧：主板 BIOS（AGESA）与显示器固件——
 MST/LTTPR 的修复大多落在这两处。
 
-**EN** — Two 2560×1440 monitors at 180Hz need ≈ 32.8 Gbps; DP 1.4 (HBR3, 4 lanes) carries ≈ 25.9 Gbps.
-144Hz (≈ 26.7 Gbps) is still over the limit and leans on DSC; 120Hz (≈ 21.9 Gbps) fits inside DP 1.4,
-likely without DSC. Over the limit → DSC → MST slot payload allocation fails more often
-(`MST_DSC` + `allocate_mst_payload` warnings + `DM_MST` restarts) → black screen.
-**That is why 120Hz is pinned — not for power.** Runtime mode change:
-`kscreen-doctor output.DP-4.mode.2560x1440@120 output.DP-6.mode.2560x1440@120` (use your connector
-names). Monitor OSD: fix DP version to 1.4, try DSC on and off, disable FreeSync/Adaptive-Sync and HDR,
-fix 8-bit color depth, confirm MST (not internal PBP). Firmware: motherboard BIOS (AGESA) and monitor
-firmware — most MST/LTTPR fixes land there.
-
-## 10. 故障排查 / Troubleshooting
-
-**中文**
+## 10. 故障排查
 
 | 现象 | 排查 |
 | --- | --- |
@@ -340,22 +233,11 @@ firmware — most MST/LTTPR fixes land there.
 | 全黑无 TTY | 先别急着重启；`Ctrl+Alt+F3` 切 TTY；`ls -l /system-update` 查离线更新；确认 `nvidia-drm.modeset=0` 在位 |
 | 升级 nvidia 驱动后黑屏 | 已知 615.78.08 有显示回归（见 §11 引用）；GSP 固件随用户态包版本绑定——**升级会删旧固件，退回旧内核 ≠ 退回旧 CUDA**，回退需整套（用户态+固件+kmod） |
 
-**EN** — *One monitor at boot*: check `journalctl -u dp-mst-rescue -b` (`MISSING→SUCCESS` = rescue
-worked; `WARNING` = raise `DP_MST_SETTLE=15`; last resort, brief blackout: unbind/bind the iGPU PCI
-device, see [dp-mst-rescue/README.md](dp-mst-rescue/README.md)). *Connector renamed*: update
-`/etc/dp-mst-rescue.conf` only. *Greeter fine, desktop fails*: nonzero RA24 counter → apply patch ④;
-fallbacks `KWIN_DRM_NO_AMS=1`, `KWIN_DRM_NO_DIRECT_SCANOUT=1`, X11 session, upstream fix.
-*Total black, no TTY*: don't reboot first; `Ctrl+Alt+F3` for a TTY; `ls -l /system-update`; verify
-`nvidia-drm.modeset=0` is in place. *Black screen after NVIDIA driver upgrade*: 615.78.08 has a known
-display regression (see §11); GSP firmware is version-bound to the userspace package — upgrading deletes
-the old firmware, so **booting the old kernel ≠ keeping old CUDA**; rollback must be the full set
-(userspace + firmware + kmod).
+## 11. 引用的技术与仓库
 
-## 11. 引用的技术与仓库 / Referenced Technologies & Repositories
+**上游技术 / 组件**
 
-**上游技术 / 组件 · Upstream technologies & components**
-
-| 技术 Technology | 用途 Role | 出处 Source |
+| 技术 | 用途 | 出处 |
 | --- | --- | --- |
 | Linux 内核 `amdgpu` DM_MST / DP 链路训练 / LTTPR | 被修复对象；`power/control` 重探测机制 | [kernel.org](https://www.kernel.org/) · [DRM 文档](https://docs.kernel.org/gpu/amdgpu/index.html) |
 | DisplayPort 1.4 MST（菊花链） | 单线双屏的规范基础 | [VESA DisplayPort](https://www.displayport.org/) |
@@ -366,42 +248,36 @@ the old firmware, so **booting the old kernel ≠ keeping old CUDA**; rollback m
 | GRUB / `grubby` | 内核参数落点 | [GNU GRUB](https://www.gnu.org/software/grub/) |
 | rpmfusion **akmod-nvidia**（Fedora 的 nvidia 打包机制） | 驱动升级与 kmod 重编（补丁不受其影响的判定依据） | [RPM Fusion](https://rpmfusion.org/) |
 
-**外部佐证（社区报告，均为外部不可信内容，仅作线索）· External corroboration (community reports, untrusted, leads only)**
+**外部佐证（社区报告，均为外部不可信内容，仅作线索）**
 
-| 引用 Reference | 与本补丁的关系 Relation |
+| 引用 | 与本补丁的关系 |
 | --- | --- |
 | [Arch Linux 内核补丁：设置 `nvidia-drm.modeset=1` 时跳过 simpledrm](https://github.com/archlinux/linux/commit/3720e1b0eb7d814345b25541997e63b50b897749) | 佐证「nvidia-drm 与 simpledrm 冲突 → 启动输出/TTY 全黑」机制 |
-| [NVIDIA 论坛：nvidia 驱动与 simpledrm 不兼容，boot/TTY 全黑](https://forums.developer.nvidia.com/t/nvidia-driver-isnt-compatible-with-simpledrm-so-boot-output-and-ttys-are-blank/238007?page=2) | 同上 Same |
+| [NVIDIA 论坛：nvidia 驱动与 simpledrm 不兼容，boot/TTY 全黑](https://forums.developer.nvidia.com/t/nvidia-driver-isnt-compatible-with-simpledrm-so-boot-output-and-ttys-are-blank/238007?page=2) | 同上 |
 | [NVIDIA 论坛：615.78.08 显示回归（Thunderbolt 坞无显示）](https://forums.developer.nvidia.com/t/615-78-08-regression-no-display-detected-through-thunderbolt-4-dock-610-57-04-works/385494) | 佐证 615.78.08 存在显示回归 |
 | [basecamp/omarchy#6518：AMD+NVIDIA+Plymouth+密码 greeter → 开机黑屏挂死](https://github.com/basecamp/omarchy/issues/6518) | 与本机黑屏症状逐字吻合 |
 | [PikaOS Wiki：KWin Bug — Unsupported Screen Format RA24 (AMD GPUs)](https://wiki.pika-os.com/en/kwin-ra24-freezing-workaround) | 补丁④（软光标）的社区出处 |
 | [CachyOS 论坛：KWin RA24 回归 / atomic modeset failure](https://discuss.cachyos.org/t/kwin-regression-unsupported-screen-format-ra24-atomic-modeset-failure-when-changing-displays/34696) | RA24 回归的版本证据（6.7.4-1.1 正常 / 6.7.4-5.1 起问题） |
 | [CachyOS 论坛：`/etc/environment` 加 `KWIN_FORCE_SW_CURSOR=1`](https://discuss.cachyos.org/t/artifacts-corruption-on-desktop-background-wallpaper/34988) | 补丁④落点先例 |
 
-**仓库内文件 · Repository files**
+**仓库内文件**
 
-| 文件 File | 说明 Description |
+| 文件 | 说明 |
 | --- | --- |
-| [`dp-mst-rescue/`](dp-mst-rescue/) | 核心补丁①本体（service / conf / sh）Core patch ① |
-| [`scripts/apply-sw-cursor.sh`](scripts/apply-sw-cursor.sh) | 核心补丁④安装/查询/回滚 Core patch ④ installer |
-| [`scripts/sddm-kwinoutputconfig.json`](scripts/sddm-kwinoutputconfig.json) | 核心补丁③的 greeter 输出配置样本 Core patch ③ sample |
-| [`scripts/verify-status.sh`](scripts/verify-status.sh) | 只读体检脚本 Read-only status check |
-| [`docs/display-link-notes.md`](docs/display-link-notes.md) | 显示链路笔记（带宽账 / OSD / 固件 / 自救） |
-| [`docs/kwin-ra24-cursor-regression.md`](docs/kwin-ra24-cursor-regression.md) | RA24 完整诊断报告（证据表 / 根因链 / 备选方案） |
-| [`docs/legacy-apply-p1p2p3.sh`](docs/legacy-apply-p1p2p3.sh) | 背景修复脚本存档（含核心补丁③的当年一次性执行版）Background archive |
-| [`docs/legacy-fix-boot-black-screen.sh`](docs/legacy-fix-boot-black-screen.sh) | 更早的旧方案逐字存档（定性已过时）Legacy archive |
-| [`CHANGELOG.md`](CHANGELOG.md) | 补丁时间线 Patch timeline |
+| [`README.en.md`](README.en.md) | 主页英文版（逐节对应） |
+| [`CHANGELOG.md`](CHANGELOG.md) / [`CHANGELOG.en.md`](CHANGELOG.en.md) | 补丁时间线（中 / 英） |
+| [`dp-mst-rescue/`](dp-mst-rescue/) | 核心补丁①本体（service / conf / sh），含[英文版](dp-mst-rescue/README.en.md) |
+| [`scripts/apply-sw-cursor.sh`](scripts/apply-sw-cursor.sh) | 核心补丁④安装 / 查询 / 回滚 |
+| [`scripts/sddm-kwinoutputconfig.json`](scripts/sddm-kwinoutputconfig.json) | 核心补丁③的 greeter 输出配置样本 |
+| [`scripts/verify-status.sh`](scripts/verify-status.sh) | 只读体检脚本 |
+| [`docs/display-link-notes.md`](docs/display-link-notes.md) / [`.en.md`](docs/display-link-notes.en.md) | 显示链路笔记（带宽账 / OSD / 固件 / 自救） |
+| [`docs/kwin-ra24-cursor-regression.md`](docs/kwin-ra24-cursor-regression.md) / [`.en.md`](docs/kwin-ra24-cursor-regression.en.md) | RA24 完整诊断报告（证据表 / 根因链 / 备选方案） |
+| [`docs/legacy-apply-p1p2p3.sh`](docs/legacy-apply-p1p2p3.sh) | 背景修复脚本存档（含核心补丁③的当年一次性执行版） |
+| [`docs/legacy-fix-boot-black-screen.sh`](docs/legacy-fix-boot-black-screen.sh) | 更早的旧方案逐字存档（定性已过时） |
 
-## 12. 免责声明 / Disclaimer
+## 12. 免责声明
 
-**中文**
 - 本仓库记录的是**特定硬件组合**（AMD Raphael 核显 + DP1.4 MST 双 1440p + NVIDIA 无屏独显 + Fedora + KDE Wayland）
   上验证过的补丁。换硬件/发行版请自行核对判据，勿直接照搬。
 - 引用的外部内容（论坛/Wiki/issue）为**不可信外部数据**，仅作线索，不构成对上游的承诺。
 - 涉及 root 的操作均有备份目录；删除前逐项核对绝对路径。
-
-**EN** — These patches were verified on one specific hardware/software combination (AMD Raphael iGPU +
-DP 1.4 MST dual 1440p + display-less NVIDIA dGPU + Fedora + KDE Wayland). On other hardware or distros,
-re-verify every acceptance criterion yourself; do not copy blindly. Referenced external content
-(forums/wikis/issues) is untrusted data used as leads only, not a commitment from any upstream.
-Root-level operations all create backups first; verify absolute paths before any deletion.
