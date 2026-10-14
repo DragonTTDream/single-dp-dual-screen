@@ -38,7 +38,7 @@ echo
 echo "==> [1/3] 移除 rhgb quiet —— 以后能亲眼看到真实的启动/更新进度"
 grubby --update-kernel=ALL --remove-args="rhgb,quiet"
 echo "    当前内核参数："
-grubby --info=DEFAULT 2>/dev/null | sed -n 's/^args="\(.*)"/      \1/p' || true
+grubby --info=DEFAULT 2>/dev/null | sed -n 's/^args="\(.*\)"/      \1/p' || true
 
 # ---------------------------------------------------------------------------
 echo
