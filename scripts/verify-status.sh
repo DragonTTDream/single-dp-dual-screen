@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # verify-status.sh —— 单线双屏补丁集 只读体检（无需 root）
-# 检查项：内核 / 驱动 / 内核参数 / modeset / 连接器 / 保险①服务 / P4 环境变量 / 症状计数 / vfio 残留
+# 检查项：内核 / 驱动 / 内核参数 / modeset / 连接器 / 核心①服务 / 核心④环境变量 / 症状计数 / vfio 残留（背景项）
 # 只读 /sys 与 journal，不改任何东西。
 set -u
 PASS=0; FAIL=0; WARN=0
@@ -19,7 +19,7 @@ else
     info "nvidia-smi 不存在（纯 AMD 机器可忽略本项）"
 fi
 
-echo "--- 2. 保险②：NVIDIA 退出显示链"
+echo "--- 2. 核心②：NVIDIA 退出显示链"
 if grep -q 'nvidia-drm.modeset=0' /proc/cmdline 2>/dev/null; then
     ok "cmdline 含 nvidia-drm.modeset=0"
 elif grep -q 'nvidia-drm.modeset=1' /proc/cmdline 2>/dev/null; then
@@ -62,7 +62,7 @@ else
     done
 fi
 
-echo "--- 4. 保险①：dp-mst-rescue 服务"
+echo "--- 4. 核心①：dp-mst-rescue 服务"
 if command -v systemctl >/dev/null 2>&1; then
     en="$(systemctl is-enabled dp-mst-rescue.service 2>/dev/null)"
     case "$en" in
@@ -74,12 +74,12 @@ if command -v systemctl >/dev/null 2>&1; then
     [ -n "$last" ] && info "本次开机: $last"
 fi
 
-echo "--- 5. P4：软件光标"
+echo "--- 5. 核心④：软件光标"
 if [ -f "$HOME/.config/environment.d/50-kwin-sw-cursor.conf" ] || \
    grep -qs 'KWIN_FORCE_SW_CURSOR' "$HOME/.config/plasma-workspace/env/10-kwin-sw-cursor.sh" 2>/dev/null; then
     ok "KWIN_FORCE_SW_CURSOR 配置在位"
 else
-    warn "P4 未安装（RA24 光标回归无防护）"
+    warn "核心补丁④未安装（RA24 光标回归无防护）"
 fi
 if command -v pgrep >/dev/null 2>&1 && pgrep -x kwin_wayland >/dev/null 2>&1; then
     kw="$(pgrep -x kwin_wayland | head -1)"
@@ -98,11 +98,11 @@ echo "--- 6. 症状计数（本次开机，都应接近 0）"
 ra24="$(journalctl -b -k -o cat --no-pager 2>/dev/null | grep -c 'Unsupported screen format RA24')"
 atomic="$(journalctl -b -o cat _COMM=kwin_wayland --no-pager 2>/dev/null | grep -c 'Atomic modeset commit failed')"
 lttp="$(journalctl -b -k -o cat --no-pager 2>/dev/null | grep -c 'LTTPR')"
-[ "$ra24" -le 0 ] && ok "RA24 计数 = $ra24" || bad "RA24 计数 = $ra24（P4 未生效？）"
+[ "$ra24" -le 0 ] && ok "RA24 计数 = $ra24" || bad "RA24 计数 = $ra24（核心补丁④未生效？）"
 [ "$atomic" -le 0 ] && ok "Atomic modeset 失败计数 = $atomic" || bad "Atomic modeset 失败计数 = $atomic"
 info "LTTPR 计数 = $lttp（每次开机都有，良性，不具区分度）"
 
-echo "--- 7. vfio 残留（P3 后续）"
+echo "--- 7. vfio 残留（背景项，与双屏无关）"
 if lsmod 2>/dev/null | grep -q '^vfio'; then
     warn "vfio 模块仍在内存（本次开机由旧 initramfs 加载；确认配置已删后重启验证）"
 else

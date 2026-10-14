@@ -1,14 +1,13 @@
-# 显示链路笔记（自 Deepseekword 并入 · 2026-09-29）
+# 显示链路笔记（单线双屏 · DP 1.4 MST）
 
-> **适配说明**：本文由原始机器档案并入本仓库（2026-10-14），内部链接已按仓库结构修正；机器专属路径以仓库内文件为准。
+> **EN · Display link notes for the single-cable dual-monitor (DP 1.4 MST) setup.**
+> Bandwidth budget (why 120Hz is mandatory), monitor OSD settings, firmware, verification counters,
+> and self-rescue steps when the screen goes black at boot.
+> 中文全文见下。入口：[`../README.md`](../README.md)。
 
-> **并入范围**：只有单线双屏的显示内容 —— 一条 DP 线经 MST 上两块屏（`card1-DP-4` 上 / `card1-DP-6` 下）。
-> **来源**：源机器档案 `Deepseekword/fix-boot-black-screen.sh`，已于 2026-09-29 从该工作区删除；
-> 原文**逐字存档**在本目录 [`legacy-fix-boot-black-screen.sh`](legacy-fix-boot-black-screen.sh)
-> （6181 字节、127 行，与原文件字节数完全一致）。
-> 来源中属于「无声意外重启」的内容一律不并入。
-> **入口**：[`../README.md`](../README.md)——正式修复（P1/P2/P3）与第二道保险 `dp-mst-rescue/` 都在那里。
-> 存档脚本**只留档、不要照跑**：它的根因判定与 `DP-5`/`DP-11` 连接器名已过时，见下面 §0。
+> **范围**：单线双屏的显示链路 —— 一条 DP 线经 MST 上两块屏（`card1-DP-4` 上 / `card1-DP-6` 下）。
+> 文中引用的「旧文件」= 本目录 [`legacy-fix-boot-black-screen.sh`](legacy-fix-boot-black-screen.sh)（逐字存档，**只留档、不要照跑**：
+> 它的根因判定与 `DP-5`/`DP-11` 连接器名已过时，见下面 §0）。
 
 ## 0. 先说清楚：旧文件对黑屏的定性已被取代
 
@@ -21,7 +20,7 @@
 首次真实 modeset 时 amdgpu MST payload 分配竞态 → `Atomic modeset commit failed! 无效的参数`（EINVAL），
 详见 [`../README.md`](../README.md) 的「背景」。
 
-但旧文件的**链路侧**内容仍然有效 —— 尤其它解释了 P2 为什么要把 greeter 钉在 120Hz，故按主题并入下面各节。
+但旧文件的**链路侧**内容仍然有效 —— 尤其它解释了核心补丁「greeter 钉 120Hz」为什么必须存在，故按主题收录下面各节。
 
 ## 1. 带宽账：为什么必须压到 120Hz
 
@@ -35,7 +34,7 @@
 
 超限就必须靠 DSC 硬压，而 DSC 一上来，MST 时隙载荷分配就更容易失败（实测日志：`MST_DSC` +
 `allocate_mst_payload` WARNING + `DM_MST` 拓扑管理器反复重启）→ 黑屏。
-**这就是 P2 钉 120Hz 的原因，不是省电。**
+**这就是 greeter 钉 120Hz 的原因，不是省电。**
 
 运行时改刷新率（连接器名以当次开机的 `ls /sys/class/drm/card1-DP-*` 为准；本机现为 `card1-DP-4`/`card1-DP-6`，
 旧文件里的 `DP-5`/`DP-11` 是更早一次开机的编号，已失效）：
@@ -64,11 +63,11 @@ kscreen-doctor output.DP-4.mode.2560x1440@100 output.DP-6.mode.2560x1440@100
 
 | 旧文件动作 | 现在 |
 | --- | --- |
-| `grubby --update-kernel=ALL --remove-args="rhgb,quiet"` | P1 **已做过**；注意 **grubby 对 BLS 无效**，必须直接改 `/boot/loader/entries/*.conf` |
+| `grubby --update-kernel=ALL --remove-args="rhgb,quiet"` | **已做过**（背景修复，见 README §4）；注意 **grubby 对 BLS 无效**，必须直接改 `/boot/loader/entries/*.conf` |
 | `/etc/xdg/discoverrc` → `UseOfflineUpdates=false` | 与现行修复不冲突，可留 |
 | `/etc/dnf/automatic.conf` → `apply_updates = no` | 与现行修复不冲突，可留 |
-| `--with-iommu-cleanup`：`grubby --remove-args="amd_iommu=on"`（保留 `iommu=pt`） | P3 **已处理** |
-| 备份到 `/root/boot-black-screen-backup-<时间戳>` | 现行备份在 `/root/boot-fix-backup-20260927-194851/` |
+| `--with-iommu-cleanup`：`grubby --remove-args="amd_iommu=on"`（保留 `iommu=pt`） | 已处理（背景修复，与双屏链路无关） |
+| 备份到 `/root/boot-black-screen-backup-<时间戳>` | 现行方案同样先备份（备份目录由脚本生成，时间戳命名） |
 | （A 段）`grub2-mkconfig -o /boot/grub2/grub.cfg` | BLS 模式下通常不必，做了也无害 |
 
 ## 5. 验证（重启后跑，计数应降到 0 附近）
