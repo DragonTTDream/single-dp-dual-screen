@@ -1,12 +1,8 @@
 # 桌面概率性进不去 —— KWin/amdgpu 光标平面 RA24 回归（2026-09-29 定位）
 
-> **EN · Diagnosis report: "the desktop randomly fails to start".**
-> Root cause is NOT the DP MST link: KWin hands its hardware cursor plane over in `RGBA8888` (`RA24`),
-> amdgpu's DC rejects the format, and the *entire* atomic modeset commit fails with `EINVAL`.
-> Fix = core patch ④ `KWIN_FORCE_SW_CURSOR=1` (script `scripts/apply-sw-cursor.sh`).
-> Per-boot evidence table, root-cause chain, measurement discipline, and fallback options below (Chinese).
+**简体中文** · [English](kwin-ra24-cursor-regression.en.md)
 
-> 入口：本文件。结论：**这不是 DP MST 链路问题**，而是 KWin 硬件光标平面的 `RGBA8888`(RA24) 格式被 amdgpu 拒绝导致 atomic commit 全灭。
+> 入口：[`../README.md`](../README.md)。结论：**这不是 DP MST 链路问题**，而是 KWin 硬件光标平面的 `RGBA8888`(RA24) 格式被 amdgpu 拒绝导致 atomic commit 全灭。
 > 修复 = 核心补丁④（`KWIN_FORCE_SW_CURSOR=1`），安装脚本 `scripts/apply-sw-cursor.sh`，回滚见本文件 §6。
 
 ## 1. 症状

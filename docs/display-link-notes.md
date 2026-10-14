@@ -1,9 +1,8 @@
 # 显示链路笔记（单线双屏 · DP 1.4 MST）
 
-> **EN · Display link notes for the single-cable dual-monitor (DP 1.4 MST) setup.**
-> Bandwidth budget (why 120Hz is mandatory), monitor OSD settings, firmware, verification counters,
-> and self-rescue steps when the screen goes black at boot.
-> 中文全文见下。入口：[`../README.md`](../README.md)。
+**简体中文** · [English](display-link-notes.en.md)
+
+> 入口：[`../README.md`](../README.md)。
 
 > **范围**：单线双屏的显示链路 —— 一条 DP 线经 MST 上两块屏（`card1-DP-4` 上 / `card1-DP-6` 下）。
 > 文中引用的「旧文件」= 本目录 [`legacy-fix-boot-black-screen.sh`](legacy-fix-boot-black-screen.sh)（逐字存档，**只留档、不要照跑**：
